@@ -1,0 +1,53 @@
+name: SYCL hardware tests (Intel GPU)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/sycl-hw.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: strata-gpu
+  cancel-in-progress: false
+
+jobs:
+  sycl-parity:
+    runs-on: [self-hosted, Linux, X64, ov-llama-dmz-04]
+    timeout-minutes: 120
+    env:
+      http_proxy: http://proxy-dmz.intel.com:911
+      https_proxy: http://proxy-dmz.intel.com:912
+      no_proxy: localhost,127.0.0.1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: llama.cpp (ggml) at the pinned commit
+        shell: bash
+        run: |
+          commit=$(sed -n 's/^LLAMA_CPP_COMMIT = "\(.*\)"/\1/p' setup.py)
+          rm -rf -- llama.cpp
+          mkdir llama.cpp && cd llama.cpp && git init -q
+          git remote add origin https://github.com/ggml-org/llama.cpp.git
+          git fetch -q --depth 1 origin "$commit" && git checkout -q FETCH_HEAD
+      - name: Configure and build
+        shell: bash
+        run: |
+          . /opt/intel/oneapi/setvars.sh --force >/dev/null
+          sycl-ls
+          launcher=""
+          if command -v ccache >/dev/null; then launcher="-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"; fi
+          cmake -S sycl -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx \
+            -DSTRATA_SYCL_PARITY=ON -DSTRATA_SYCL_IQ_DECODE_FAST=ON \
+            -DSTRATA_GGML_DIR="$PWD/llama.cpp" $launcher
+          cmake --build build -j "$(nproc)"
+      - name: CTest on the GPU
+        shell: bash
+        run: |
+          . /opt/intel/oneapi/setvars.sh --force >/dev/null
+          ctest --test-dir build -E "ple_parity" --timeout 600 --output-on-failure
