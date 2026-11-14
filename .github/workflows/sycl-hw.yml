@@ -51,3 +51,19 @@ jobs:
         run: |
           . /opt/intel/oneapi/setvars.sh --force >/dev/null
           ctest --test-dir build -E "ple_parity" --timeout 600 --output-on-failure
+
+      # On a Battlemage card (B70) these must really run: esimd_moe_parity and qsa_prompt_attn_parity print SKIP and exit 0
+      # on a device without the s8 DPAS / XMX support, so a plain pass in the step above would hide a skipped test.
+      - name: XMX and ESIMD tests must run, not skip
+        shell: bash
+        run: |
+          . /opt/intel/oneapi/setvars.sh --force >/dev/null
+          ctest --test-dir build -R "^(esimd_moe_parity|qsa_prompt_attn_parity)$" --no-tests=error --timeout 600 -V | tee xmx-tests.log
+          if grep -qi 'skip' xmx-tests.log; then echo "::error::an XMX/ESIMD test skipped on this card"; exit 1; fi
+
+      # dense dequantizers and mmvq against the CPU dequantizers, random blocks, no model (built, not registered with CTest)
+      - name: Dense dequantizer parity
+        shell: bash
+        run: |
+          . /opt/intel/oneapi/setvars.sh --force >/dev/null
+          ./build/dq_dense_parity --quick
