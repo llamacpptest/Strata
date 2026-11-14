@@ -1,4 +1,4 @@
-name: SYCL hardware tests (Intel GPU)
+name: SYCL hardware tests (Intel GPU) 
 
 on:
   push:
