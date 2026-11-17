@@ -63,6 +63,7 @@ jobs:
 
       # dense dequantizers and mmvq against the CPU dequantizers, random blocks, no model (built, not registered with CTest)
       - name: Dense dequantizer parity
+        if: ${{ !cancelled() }}   # runs even when the skip guard above fails
         shell: bash
         run: |
           . /opt/intel/oneapi/setvars.sh --force >/dev/null
