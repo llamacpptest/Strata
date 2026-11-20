@@ -52,7 +52,7 @@ jobs:
           . /opt/intel/oneapi/setvars.sh --force >/dev/null
           ctest --test-dir build -E "ple_parity" --timeout 600 --output-on-failure
 
-      # On a Battlemage card (B70) these must really run: esimd_moe_parity and qsa_prompt_attn_parity print SKIP and exit 0.
+      # On a Battlemage card (B70) these must really run: esimd_moe_parity and qsa_prompt_attn_parity print SKIP and exit 0
       # on a device without the s8 DPAS / XMX support, so a plain pass in the step above would hide a skipped test.
       - name: XMX and ESIMD tests must run, not skip
         shell: bash
